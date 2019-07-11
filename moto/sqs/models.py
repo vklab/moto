@@ -395,11 +395,14 @@ class SQSBackend(BaseBackend):
             queue_attributes = queue.attributes
             new_queue_attributes = new_queue.attributes
 
-            for key in ['CreatedTimestamp', 'LastModifiedTimestamp']:
-                queue_attributes.pop(key)
-                new_queue_attributes.pop(key)
+            queue_config = {}
+            new_queue_config = {}
 
-            if queue_attributes != new_queue_attributes:
+            for key in ['DelaySeconds', 'MaximumMessageSize', 'MessageRetentionPeriod', 'QueueArn', 'ReceiveMessageWaitTimeSeconds', 'VisibilityTimeout']:
+                queue_config[key] = queue_attributes[key]
+                new_queue_config[key] = new_queue_attributes[key]
+
+            if queue_config != new_queue_config:
                 raise QueueAlreadyExists("The specified queue already exists.")
         else:
             try:
