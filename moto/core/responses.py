@@ -141,16 +141,18 @@ class BaseResponse(_TemplateEnvironmentMixin):
             querystring.update(
                 parse_qs(urlparse(full_url).query, keep_blank_values=True))
         if not querystring:
-            if 'json' in request.headers.get('content-type', []) and self.aws_service_spec:
-                decoded = json.loads(self.body)
+            if 'json' in request.headers.get('content-type', []):
+                # No-op case here for dynamodb to avoid tring to qs parse a json body
+                if self.aws_service_spec:
+                    decoded = json.loads(self.body)
 
-                target = request.headers.get(
-                    'x-amz-target') or request.headers.get('X-Amz-Target')
-                service, method = target.split('.')
-                input_spec = self.aws_service_spec.input_spec(method)
-                flat = flatten_json_request_body('', decoded, input_spec)
-                for key, value in flat.items():
-                    querystring[key] = [value]
+                    target = request.headers.get(
+                        'x-amz-target') or request.headers.get('X-Amz-Target')
+                    service, method = target.split('.')
+                    input_spec = self.aws_service_spec.input_spec(method)
+                    flat = flatten_json_request_body('', decoded, input_spec)
+                    for key, value in flat.items():
+                        querystring[key] = [value]
             elif self.body:
                 querystring.update(parse_qs(raw_body, keep_blank_values=True))
         if not querystring:
