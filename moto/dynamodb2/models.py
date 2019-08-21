@@ -164,6 +164,49 @@ class Item(BaseModel):
                         if path in self.attrs:
                             value = self.attrs[path]
 
+                    # Do some actual parsing to support numeric math and list_append
+
+                    def resolve_operand(operand):
+                        if operand in self.attrs:
+                            return self.attrs[operand]
+                        if operand in expression_attribute_values:
+                            return DynamoType(expression_attribute_values[operand])
+                        if operand.startswith('list_append'):
+                            match = re.match(r'list_append\((?P<operand1>(\w|-|:|#)+(\(.+\)){0,1})(\s*,\s*(?P<operand2>(\w|-|:|#)+(\(.+\)){0,1}))\)', operand)
+                            operand1 = match.group('operand1')
+                            operand2 = match.group('operand2')
+                            operand1_value = resolve_operand(operand1)
+                            if operand1_value.type != 'L':
+                                operand1_value = DynamoType({'L': [operand1_value]})
+                            operand2_value = resolve_operand(operand2)
+                            if operand2_value.type != 'L':
+                                operand2_value = DynamoType({'L': [operand2_value]})
+                            return DynamoType({
+                                'L': operand1_value.value + operand2_value.value
+                            })
+                        try:
+                            return DynamoType({'N': decimal.Decimal(operand)})
+                        except Exception:
+                            return DynamoType({'S': operand})
+
+                    def resolve_value(value):
+                        match = re.match(r'(?P<operand1>(\w|-|:|#)+(\(.+\)){0,1})(\s*(?P<operator>(\+|-))\s*(?P<operand2>(\w|-|:|#)+(\(.+\)){0,1}))?', value)
+                        if not match:
+                            raise TypeError
+                        operand1 = match.group('operand1')
+                        operator = match.group('operator')
+                        operand2 = match.group('operand2')
+
+                        operand1_value = resolve_operand(operand1)
+
+                        if operator:
+                            operand2_value = resolve_operand(operand2)
+                            operator_coef = 1 if operator == '+' else -1
+                            return DynamoType({'N': str(decimal.Decimal(operand1_value.value) + operator_coef * decimal.Decimal(operand2_value.value))})
+                        return operand1_value
+
+                    value = resolve_value(value)
+
                     if type(value) != DynamoType:
                         if value in expression_attribute_values:
                             value = DynamoType(expression_attribute_values[value])
