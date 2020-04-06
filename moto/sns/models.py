@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import datetime
 import uuid
 import json
+import os
 
 import requests
 import six
@@ -44,12 +45,12 @@ class Topic(BaseModel):
         self.subscriptions_confimed = 0
         self.subscriptions_deleted = 0
 
-    def publish(self, message, subject=None, message_attributes=None):
+    def publish(self, message, subject=None, message_attributes=None, message_structure=None):
         message_id = six.text_type(uuid.uuid4())
         subscriptions, _ = self.sns_backend.list_subscriptions(self.arn)
         for subscription in subscriptions:
             subscription.publish(message, message_id, subject=subject,
-                                 message_attributes=message_attributes)
+                                 message_attributes=message_attributes, message_structure=message_structure)
         return message_id
 
     def get_cfn_attribute(self, attribute_name):
@@ -88,10 +89,13 @@ class Subscription(BaseModel):
         self.confirmed = False
 
     def publish(self, message, message_id, subject=None,
-                message_attributes=None):
+                message_attributes=None, message_structure=None):
         if not self._matches_filter_policy(message_attributes):
             return
 
+        if message_structure == "json":
+            parsed = json.loads(message)
+            message = parsed.get(self.protocol, parsed['default'])
         if self.protocol == 'sqs':
             queue_name = self.endpoint.split(":")[-1]
             region = self.endpoint.split(":")[3]
@@ -99,7 +103,13 @@ class Subscription(BaseModel):
                 enveloped_message = json.dumps(self.get_post_data(message, message_id, subject, message_attributes=message_attributes), sort_keys=True, indent=2, separators=(',', ': '))
             else:
                 enveloped_message = message
-            sqs_backends[region].send_message(queue_name, enveloped_message)
+            if os.environ.get("SQS_URL"):
+                s = Session()
+                sqs = s.resource('sqs', endpoint_url=os.environ["SQS_URL"])
+                q = sqs.get_queue_by_name(QueueName=queue_name)
+                q.send_message(MessageBody=enveloped_message)
+            else:
+                sqs_backends[region].send_message(queue_name, enveloped_message)
         elif self.protocol in ['http', 'https']:
             post_data = self.get_post_data(message, message_id, subject)
             requests.post(self.endpoint, json=post_data, headers={'Content-Type': 'text/plain; charset=UTF-8'})
@@ -323,7 +333,7 @@ class SNSBackend(BaseBackend):
         else:
             return self._get_values_nexttoken(self.subscriptions, next_token)
 
-    def publish(self, arn, message, subject=None, message_attributes=None):
+    def publish(self, arn, message, subject=None, message_attributes=None, message_structure=None):
         if subject is not None and len(subject) > 100:
             # Note that the AWS docs around length are wrong: https://github.com/spulec/moto/issues/1503
             raise ValueError('Subject must be less than 100 characters')
@@ -334,7 +344,7 @@ class SNSBackend(BaseBackend):
         try:
             topic = self.get_topic(arn)
             message_id = topic.publish(message, subject=subject,
-                                       message_attributes=message_attributes)
+                                       message_attributes=message_attributes, message_structure=message_structure)
         except SNSNotFoundError:
             endpoint = self.get_endpoint(arn)
             message_id = endpoint.publish(message)
