@@ -288,6 +288,7 @@ class SNSResponse(BaseResponse):
         topic_arn = self._get_param('TopicArn')
         phone_number = self._get_param('PhoneNumber')
         subject = self._get_param('Subject')
+        message_structure = self._get_param('MessageStructure')
 
         message_attributes = self._parse_message_attributes()
 
@@ -317,7 +318,7 @@ class SNSResponse(BaseResponse):
         try:
             message_id = self.backend.publish(
                 arn, message, subject=subject,
-                message_attributes=message_attributes)
+                message_attributes=message_attributes, message_structure=message_structure)
         except ValueError as err:
             error_response = self._error('InvalidParameter', str(err))
             return error_response, dict(status=400)
