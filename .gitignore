@@ -15,4 +15,8 @@ python_env
 .ropeproject/
 .pytest_cache/
 venv/
-
+env/
+.python-version
+.vscode/
+tests/file.tmp
+.eggs/
