@@ -514,8 +514,8 @@ class SQSBackend(BaseBackend):
             new_queue_config = {}
 
             for key in static_attributes:
-                queue_config[key] = queue_attributes[key]
-                new_queue_config[key] = new_queue_attributes[key]
+                queue_config[key] = queue_attributes.get(key)
+                new_queue_config[key] = new_queue_attributes.get(key)
 
             if queue_config != new_queue_config:
                 raise QueueAlreadyExists("The specified queue already exists.")
