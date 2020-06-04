@@ -320,24 +320,24 @@ class BotocoreEventMockAWS(BaseMockAWS):
                             match_querystring=False,
                         )
                     )
-            responses_mock.add(
-                CallbackResponse(
-                    method=method,
-                    url=re.compile("https?://.+.amazonaws.com/.*"),
-                    callback=not_implemented_callback,
-                    stream=True,
-                    match_querystring=False,
-                )
-            )
-            botocore_mock.add(
-                CallbackResponse(
-                    method=method,
-                    url=re.compile("https?://.+.amazonaws.com/.*"),
-                    callback=not_implemented_callback,
-                    stream=True,
-                    match_querystring=False,
-                )
-            )
+            # responses_mock.add(
+            #     CallbackResponse(
+            #         method=method,
+            #         url=re.compile("https?://.+.amazonaws.com/.*"),
+            #         callback=not_implemented_callback,
+            #         stream=True,
+            #         match_querystring=False,
+            #     )
+            # )
+            # botocore_mock.add(
+            #     CallbackResponse(
+            #         method=method,
+            #         url=re.compile("https?://.+.amazonaws.com/.*"),
+            #         callback=not_implemented_callback,
+            #         stream=True,
+            #         match_querystring=False,
+            #     )
+            # )
 
     def disable_patching(self):
         botocore_stubber.enabled = False
